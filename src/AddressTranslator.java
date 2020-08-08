@@ -12,17 +12,17 @@ class AddressTranslator {
 	// pageSize: size of a page in bytes. Can be either 4096 or 8192.   
 	// numTLBRows: number of rows in the TLB (translation lookaside buffer). Can be either 4 or 8 or 16.
 	public AddressTranslator(int pageSize, int numTLBRows) {
-	    // Page size intialisation
+	    // Page size intialization
         if(pageSize == 4096 || pageSize == 8192){
             this.pageSize = pageSize;
 
             // Page table creation
-            pageTable = new LinkedList<Entry>(pageTableSize(this.pageSize));
+            pageTable = Arrays.asList(pageTableArray(this.pageSize));
         }else{
             System.out.println("Wrong page size ! The page size should be 4096 or 8192.");
         }
 
-        // numTLBRows initialisation
+        // numTLBRows initialization
         if(numTLBRows == 4 || numTLBRows == 8 || numTLBRows == 16){
             this.numTLBRows = numTLBRows;
 
@@ -37,19 +37,32 @@ class AddressTranslator {
 	// Should throw an IllegalArgumentException exception if the page numbers 
 	// are not in a valid range.   
 	public void setPageTableEntry(int VPN, int PPN, boolean isPresent) {
-
+	    try{
+            pageTable.set(VPN, new Entry(VPN, PPN, isPresent));
+        }catch (IndexOutOfBoundsException e){
+            throw new IllegalArgumentException("Page number not in valid range.");
+        }
     }
  
 	// Translates the virtual address and returns the corresponding physical address.   
 	// Must throw an IllegalArgumentException exception if there is no page 
 	// present at that address.   
 	public int translate(int virtualAddress) {
-
+	    try{
+            Entry entry = pageTable.get(virtualAddress);
+            if(entry.present){
+                return entry.ppn;
+            }else{
+                throw new IllegalArgumentException("There is no page present at that address.");
+            }
+        }catch (Exception e){
+	        throw new IllegalArgumentException("There is no page present at that address.");
+        }
     }
  
 	// Returns the number of TLB hits   
 	public int getNumberOfHits() {
-
+        return 0;
     }
 
     private int pageTableSize(int pageSize){
@@ -57,6 +70,15 @@ class AddressTranslator {
 	        return 1048575;
         }
 	    return 524287;
+    }
+
+    private Entry[] pageTableArray(int pageSize){
+	    Entry []array = new Entry[pageTableSize(pageSize)];
+        for(int i = 0; i < array.length; i++) {
+            array[i] = new Entry(i);
+            // array[i] = null;
+        }
+	    return array;
     }
 
     // Inner class
@@ -77,30 +99,8 @@ class AddressTranslator {
             this.present = present;
         }
 
-        // Getters
-        public int getVpn() {
-            return vpn;
-        }
-
-        public int getPpn() {
-            return ppn;
-        }
-
-        public boolean isPresent() {
-            return present;
-        }
-
-        // Setters
-        public void setVpn(int vpn) {
+        public Entry(int vpn) {
             this.vpn = vpn;
-        }
-
-        public void setPpn(int ppn) {
-            this.ppn = ppn;
-        }
-
-        public void setPresent(boolean present) {
-            this.present = present;
         }
     }
 } 
