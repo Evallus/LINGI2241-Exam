@@ -51,37 +51,26 @@ class AddressTranslator {
 	    try{
             int[] binaryVpn = intToLongBinary(virtualAddress);
             double vpnEntry = 0;
+            int offset;
             if(pageSize == 4096){
                 // offset de 12 (array of size 31)
-                for(int i = binaryVpn.length-(12+1), j=0; i >= 0; i--, j++){
-                    vpnEntry += binaryVpn[i] * Math.pow (2, j);
-                }
+                offset = 12;
             }else{
                 // offset de 13 (array of size 31)
-                for(int i = binaryVpn.length-(13+1), j=0; i >= 0; i--, j++){
-                    vpnEntry += binaryVpn[i] * Math.pow (2, j);
-                }
+                offset = 13;
+            }
+            for(int i = binaryVpn.length-(offset+1), j=0; i >= 0; i--, j++){
+                vpnEntry += binaryVpn[i] * Math.pow (2, j);
             }
             Entry entry = pageTable.get((int) vpnEntry);
             if(entry.present){
                 int[] binaryPpn = intToBinary(entry.ppn);
-                int[] tmp;
-                if(pageSize == 4096){
-                    tmp = new int[binaryPpn.length + 12];
-                    for(int i = 0; i < binaryPpn.length; i++){
-                        tmp[i] = binaryPpn[i];
-                    }
-                    for(int i = binaryPpn.length, j = binaryVpn.length-12; j < binaryVpn.length-1; i++, j++){
-                        tmp[i] = binaryVpn[j];
-                    }
-                }else{
-                    tmp = new int[binaryPpn.length + 13];
-                    for(int i = 0; i < binaryPpn.length; i++){
-                        tmp[i] = binaryPpn[i];
-                    }
-                    for(int i = binaryPpn.length, j = binaryVpn.length-13; j < binaryVpn.length-1; i++, j++){
-                        tmp[i] = binaryPpn[j];
-                    }
+                int[] tmp = new int[binaryPpn.length + offset];
+                for(int i = 0; i < binaryPpn.length; i++){
+                    tmp[i] = binaryPpn[i];
+                }
+                for(int i = binaryPpn.length, j = binaryVpn.length-offset; j < binaryVpn.length-1; i++, j++){
+                    tmp[i] = binaryVpn[j];
                 }
                 int res = 0;
                 for(int i = 0, j = tmp.length-1; i < tmp.length; i++, j--){
