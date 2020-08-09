@@ -12,14 +12,14 @@ class AddressTranslator {
 	// pageSize: size of a page in bytes. Can be either 4096 or 8192.   
 	// numTLBRows: number of rows in the TLB (translation lookaside buffer). Can be either 4 or 8 or 16.
 	public AddressTranslator(int pageSize, int numTLBRows) {
-	    // Page size intialization
+	    // Page size initialization
         if(pageSize == 4096 || pageSize == 8192){
             this.pageSize = pageSize;
 
             // Page table creation
             pageTable = Arrays.asList(pageTableArray(this.pageSize));
         }else{
-            System.out.println("Wrong page size ! The page size should be 4096 or 8192.");
+            throw new IllegalArgumentException("Wrong page size ! The page size should be 4096 or 8192.");
         }
 
         // numTLBRows initialization
@@ -29,7 +29,7 @@ class AddressTranslator {
             // TLB creation
             tlb = new LinkedHashMap<Integer,Integer>(this.numTLBRows);
         }else{
-            System.out.println("Wrong number of rows in the TLB (translation lookaside buffer) ! The number of rows in the TLB should be 4, 8 or 16.");
+            throw new IllegalArgumentException("Wrong number of rows in the TLB (translation lookaside buffer) ! The number of rows in the TLB should be 4, 8 or 16.");
         }
 	}
  
@@ -49,9 +49,45 @@ class AddressTranslator {
 	// present at that address.   
 	public int translate(int virtualAddress) {
 	    try{
-            Entry entry = pageTable.get(virtualAddress);
+            int[] binaryVpn = intToLongBinary(virtualAddress);
+            double vpnEntry = 0;
+            if(pageSize == 4096){
+                // offset de 12 (array of size 31)
+                for(int i = binaryVpn.length-(12+1), j=0; i >= 0; i--, j++){
+                    vpnEntry += binaryVpn[i] * Math.pow (2, j);
+                }
+            }else{
+                // offset de 13 (array of size 31)
+                for(int i = binaryVpn.length-(13+1), j=0; i >= 0; i--, j++){
+                    vpnEntry += binaryVpn[i] * Math.pow (2, j);
+                }
+            }
+            Entry entry = pageTable.get((int) vpnEntry);
             if(entry.present){
-                return entry.ppn;
+                int[] binaryPpn = intToBinary(entry.ppn);
+                int[] tmp;
+                if(pageSize == 4096){
+                    tmp = new int[binaryPpn.length + 12];
+                    for(int i = 0; i < binaryPpn.length; i++){
+                        tmp[i] = binaryPpn[i];
+                    }
+                    for(int i = binaryPpn.length, j = binaryVpn.length-12; j < binaryVpn.length-1; i++, j++){
+                        tmp[i] = binaryVpn[j];
+                    }
+                }else{
+                    tmp = new int[binaryPpn.length + 13];
+                    for(int i = 0; i < binaryPpn.length; i++){
+                        tmp[i] = binaryPpn[i];
+                    }
+                    for(int i = binaryPpn.length, j = binaryVpn.length-13; j < binaryVpn.length-1; i++, j++){
+                        tmp[i] = binaryPpn[j];
+                    }
+                }
+                int res = 0;
+                for(int i = 0, j = tmp.length-1; i < tmp.length; i++, j--){
+                    res += tmp[i] * Math.pow (2, j);
+                }
+                return res;
             }else{
                 throw new IllegalArgumentException("There is no page present at that address.");
             }
@@ -79,6 +115,26 @@ class AddressTranslator {
             // array[i] = null;
         }
 	    return array;
+    }
+
+    private int[] intToLongBinary(int value){
+        String tmp = Long.toBinaryString( Integer.toUnsignedLong(value) | 0x100000000L ).substring(1);
+        String[] tmpArray = tmp.split("");
+        int[] res = new int[tmpArray.length];
+        for (int i = 0; i < tmpArray.length; i++) {
+            res[i] = Integer.parseInt(tmpArray[i]);
+        }
+        return res;
+    }
+
+    private int[] intToBinary(int value){
+        String tmp = Integer.toBinaryString(value);
+        String[] tmpArray = tmp.split("");
+        int[] res = new int[tmpArray.length];
+        for (int i = 0; i < tmpArray.length; i++) {
+            res[i] = Integer.parseInt(tmpArray[i]);
+        }
+        return res;
     }
 
     // Inner class
