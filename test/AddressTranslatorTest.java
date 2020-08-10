@@ -26,10 +26,19 @@ class AddressTranslatorTest {
     }
 
     @Test
-    void setPageTableEntryOk() {
+    void setPageTableEntryOkTLBMiss() {
         AddressTranslator translator = new AddressTranslator(4096, 16);
         translator.setPageTableEntry(1, 5, true);
-        assertEquals(5, translator.translate(1));
+        assertEquals(20484, translator.translate(4100));
+    }
+
+    @Test
+    void setPageTableEntryOkTLBHit() {
+        AddressTranslator translator = new AddressTranslator(4096, 16);
+        translator.setPageTableEntry(1, 5, true);
+        translator.translate(4100);
+        assertEquals(20484, translator.translate(4100));
+        assertEquals(1, translator.getNumberOfHits());
     }
 
     @Test
@@ -45,7 +54,7 @@ class AddressTranslatorTest {
     void translateOk() {
         AddressTranslator translator = new AddressTranslator(4096, 16);
         translator.setPageTableEntry(1, 5, true);
-        assertEquals(5, translator.translate(4100));
+        assertEquals(20484, translator.translate(4100));
     }
 
     @Test
