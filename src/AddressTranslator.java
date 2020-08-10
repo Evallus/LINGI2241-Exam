@@ -62,6 +62,7 @@ class AddressTranslator {
             }
 
 	        // First we try to find the physical address in the TLB
+            // TODO update with 4 (16) - 3 (8) - 2 (4)
             int tlbRowIndexSize = 6;
             double tlbTag = 0;
             for(int i = binaryVpn.length - (tlbRowIndexSize + offset + 1), j=0; i >= 0 ; i--, j++){
@@ -74,13 +75,11 @@ class AddressTranslator {
             }
             try {
                 // TLB hits !
-                // TODO TLB
                 int ppn = tlb.rows[(int) tlbRowIndex].findTag((int) tlbTag).ppn;
                 tlbHits++;
                 return ppn;
             }catch (NullPointerException e){
                 // TLB miss !
-                // TODO TLB
             }
 
 	        // Otherwise we try to translate the virtual address manually
@@ -181,6 +180,8 @@ class AddressTranslator {
 	    // Class variables
 	    Integer tag;
 	    Integer ppn;
+	    TLBSlot prev;
+	    TLBSlot next;
 
         // Constructor
         // tag: the tag used to find the slot in the TLB "table"
@@ -190,34 +191,69 @@ class AddressTranslator {
             this.ppn = ppn;
         }
 
-        public TLBSlot() {
-
-        }
+        public TLBSlot(){}
     }
 
     private class TLBRow{
 
 	    // Class variables
-        TLBSlot[] slots;
+        TLBSlot head;
+        TLBSlot tail;
+        // Fixed size since it is a 4-way associative TLB
+        int slotNumber = 4;
+        int capacity = 0;
 
         // Constructor
         public TLBRow() {
-            // Fixed size because it is a 4-way associative TLB
-            this.slots = new TLBSlot[4];
-            for(int i = 0; i < slots.length; i++) {
-                slots[i] = new TLBSlot();
-            }
+            head = new TLBSlot();
+            tail = new TLBSlot();
+            head.next = tail;
+            tail.prev = head;
+            head.prev = null;
+            tail.next = null;
         }
 
         // tag: tag to find in the given row
         // return the TLBSlot with the given tag or null
         public TLBSlot findTag(int tag){
-            for(int i = 0; i < slots.length; i++){
-                if(slots[i].tag == tag){
-                    return slots[i];
+            TLBSlot current = head;
+            for(int i = 0; i < slotNumber; i++){
+                if(current.tag != null){
+                    if(current.tag == tag){
+                        return current;
+                    }
+                }
+                if(current.next.tag != null) {
+                    current = current.next;
                 }
             }
             return null;
+        }
+
+        public void addToRow(int tlbTag, int ppn) {
+            TLBSlot slot = findTag(tlbTag);
+            if(slot != null){
+                // Check if it is not the head
+                if(slot.prev != null){
+                    slot.prev.next = slot.next;
+                    slot.next.prev = slot.prev;
+                    head.prev = slot;
+                    slot.prev = null;
+                    slot.next = head;
+                    head = slot;
+                }
+            }else{
+                TLBSlot slotToAdd = new TLBSlot(tlbTag, ppn);
+                head.prev = slotToAdd;
+                slotToAdd.next = head;
+                slotToAdd.prev = null;
+                head = slotToAdd;
+                capacity++;
+                if(capacity == 4) {
+                    tail.prev.next = tail.next;
+                    tail = tail.prev;
+                }
+            }
         }
     }
 
@@ -236,13 +272,7 @@ class AddressTranslator {
         }
 
         public void addToTlb(double tlbRowIndex, double tlbTag, int ppn) {
-            // TODO Replacement policy
-            for(int i = 0; i < 4; i++){
-                TLBSlot current = tlb.rows[(int) tlbRowIndex].slots[i];
-                if(current.tag == null){
-                    tlb.rows[(int) tlbRowIndex].slots[i] = new TLBSlot((int) tlbTag, ppn);
-                }
-            }
+            tlb.rows[(int) tlbRowIndex].addToRow((int) tlbTag, ppn);
         }
     }
 } 
