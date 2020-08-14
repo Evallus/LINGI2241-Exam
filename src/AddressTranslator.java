@@ -44,8 +44,8 @@ class AddressTranslator {
             throw new IllegalArgumentException("Page number not in valid range.");
         }
     }
- 
-	// Translates the virtual address and returns the corresponding physical address.   
+
+    // Translates the virtual address and returns the corresponding physical address.
 	// Must throw an IllegalArgumentException exception if there is no page 
 	// present at that address.   
 	public int translate(int virtualAddress) {
@@ -62,15 +62,27 @@ class AddressTranslator {
             }
 
 	        // First we try to find the physical address in the TLB
-            // TODO update with 4 (16) - 3 (8) - 2 (4)
-            int tlbRowIndexSize = 6;
+            int tlbRowIndexSize = 0;
+            switch (numTLBRows){
+                case 16:
+                    tlbRowIndexSize = 4;
+                    break;
+
+                case 8:
+                    tlbRowIndexSize = 3;
+                    break;
+
+                case 4:
+                    tlbRowIndexSize = 2;
+                    break;
+            }
             double tlbTag = 0;
             for(int i = binaryVpn.length - (tlbRowIndexSize + offset + 1), j=0; i >= 0 ; i--, j++){
                 tlbTag += binaryVpn[i] * Math.pow (2, j);
             }
             int start = binaryVpn.length - (tlbRowIndexSize + offset + 1);
             double tlbRowIndex = 0;
-            for(int i = start + tlbRowIndexSize, j=0; i >= start; i--, j++){
+            for(int i = start + tlbRowIndexSize, j=0; i > start; i--, j++){
                 tlbRowIndex += binaryVpn[i] * Math.pow (2, j);
             }
             try {
@@ -80,6 +92,8 @@ class AddressTranslator {
                 return ppn;
             }catch (NullPointerException e){
                 // TLB miss !
+                // Prefetch the next entry
+                prefetch(virtualAddress+pageSize);
             }
 
 	        // Otherwise we try to translate the virtual address manually
@@ -110,8 +124,65 @@ class AddressTranslator {
 	        throw new IllegalArgumentException("There is no page present at that address.");
         }
     }
- 
-	// Returns the number of TLB hits   
+
+    private void prefetch(int virtualAddress) {
+        int[] binaryVpn = intToLongBinary(virtualAddress);
+        int offset;
+        if(pageSize == 4096){
+            // offset de 12 (array of size 31)
+            offset = 12;
+        }else{
+            // offset de 13 (array of size 31)
+            offset = 13;
+        }
+
+        // First we try to find the physical address in the TLB
+        int tlbRowIndexSize = 0;
+        switch (numTLBRows){
+            case 16:
+                tlbRowIndexSize = 4;
+                break;
+
+            case 8:
+                tlbRowIndexSize = 3;
+                break;
+
+            case 4:
+                tlbRowIndexSize = 2;
+                break;
+        }
+        double tlbTag = 0;
+        for(int i = binaryVpn.length - (tlbRowIndexSize + offset + 1), j=0; i >= 0 ; i--, j++){
+            tlbTag += binaryVpn[i] * Math.pow (2, j);
+        }
+        int start = binaryVpn.length - (tlbRowIndexSize + offset + 1);
+        double tlbRowIndex = 0;
+        for(int i = start + tlbRowIndexSize, j=0; i > start; i--, j++){
+            tlbRowIndex += binaryVpn[i] * Math.pow (2, j);
+        }
+        double vpnEntry = 0;
+        for(int i = binaryVpn.length-(offset+1), j=0; i >= 0; i--, j++){
+            vpnEntry += binaryVpn[i] * Math.pow (2, j);
+        }
+        Entry entry = pageTable.get((int) vpnEntry);
+        if(entry.present) {
+            int[] binaryPpn = intToBinary(entry.ppn);
+            int[] tmp = new int[binaryPpn.length + offset];
+            for (int i = 0; i < binaryPpn.length; i++) {
+                tmp[i] = binaryPpn[i];
+            }
+            for (int i = binaryPpn.length, j = binaryVpn.length - offset; j < binaryVpn.length - 1; i++, j++) {
+                tmp[i] = binaryVpn[j];
+            }
+            int res = 0;
+            for (int i = 0, j = tmp.length - 1; i < tmp.length; i++, j--) {
+                res += tmp[i] * Math.pow(2, j);
+            }
+            tlb.addToTlb(tlbRowIndex, tlbTag, res);
+        }
+    }
+
+    // Returns the number of TLB hits
 	public int getNumberOfHits() {
         return tlbHits;
     }
@@ -127,7 +198,6 @@ class AddressTranslator {
 	    Entry []array = new Entry[pageTableSize(pageSize)];
         for(int i = 0; i < array.length; i++) {
             array[i] = new Entry(i);
-            // array[i] = null;
         }
 	    return array;
     }
@@ -273,6 +343,78 @@ class AddressTranslator {
 
         public void addToTlb(double tlbRowIndex, double tlbTag, int ppn) {
             tlb.rows[(int) tlbRowIndex].addToRow((int) tlbTag, ppn);
+        }
+    }
+
+    public static void main( String[] args ) {
+        AddressTranslator addressTranslator = new AddressTranslator(4096, 4);
+        int a = 0;
+        int b = a + 16384;
+        int c = b + 16384;
+        int d = c + 16384;
+        int e = d + 16384;
+        int g = e + 16384;
+        int h = g + 16384;
+        int i = h + 16384;
+        int j = i + 16384;
+        try{
+            int physicalAddress;
+            addressTranslator.setPageTableEntry(0, 5, true);
+            addressTranslator.setPageTableEntry(0, 17, true);
+            addressTranslator.setPageTableEntry(1, 14, true);
+            addressTranslator.setPageTableEntry(2, 15, true);
+            addressTranslator.setPageTableEntry(3, 16, true);
+            physicalAddress = addressTranslator.translate(a);
+            physicalAddress = addressTranslator.translate(4096);
+            System.out.println(addressTranslator.getNumberOfHits());
+            physicalAddress = addressTranslator.translate(a);
+            System.out.println(addressTranslator.getNumberOfHits());
+
+            addressTranslator.setPageTableEntry(4, 6, true);
+            physicalAddress = addressTranslator.translate(b);
+            System.out.println(addressTranslator.getNumberOfHits());
+            physicalAddress = addressTranslator.translate(b);
+
+            addressTranslator.setPageTableEntry(8, 7, true);
+            physicalAddress = addressTranslator.translate(c);
+            System.out.println(addressTranslator.getNumberOfHits());
+            physicalAddress = addressTranslator.translate(c);
+
+            addressTranslator.setPageTableEntry(12, 8, true);
+            physicalAddress = addressTranslator.translate(d);
+            System.out.println(addressTranslator.getNumberOfHits());
+            physicalAddress = addressTranslator.translate(d);
+
+            addressTranslator.setPageTableEntry(16, 9, true);
+            physicalAddress = addressTranslator.translate(e);
+            System.out.println(addressTranslator.getNumberOfHits());
+            System.out.println("---------------------------------------------------------");
+            physicalAddress = addressTranslator.translate(e);
+
+            addressTranslator.setPageTableEntry(20, 10, true);
+            physicalAddress = addressTranslator.translate(g);
+            System.out.println(addressTranslator.getNumberOfHits());
+            System.out.println("---------------------------------------------------------");
+            physicalAddress = addressTranslator.translate(g);
+
+            addressTranslator.setPageTableEntry(24, 11, true);
+            physicalAddress = addressTranslator.translate(h);
+            System.out.println(addressTranslator.getNumberOfHits());
+            physicalAddress = addressTranslator.translate(h);
+
+            addressTranslator.setPageTableEntry(28, 12, true);
+            physicalAddress = addressTranslator.translate(i);
+            System.out.println(addressTranslator.getNumberOfHits());
+            System.out.println("---------------------------------------------------------");
+            physicalAddress = addressTranslator.translate(i);
+
+            addressTranslator.setPageTableEntry(32, 13, true);
+            physicalAddress = addressTranslator.translate(j);
+            System.out.println(addressTranslator.getNumberOfHits());
+            physicalAddress = addressTranslator.translate(j);
+        }
+        catch (IllegalArgumentException f){
+            System.out.println("Exception");
         }
     }
 } 
