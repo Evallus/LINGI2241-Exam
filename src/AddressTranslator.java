@@ -8,6 +8,9 @@ class AddressTranslator {
 	private List<Entry> pageTable;
     private TLB tlb;
     private int tlbHits;
+    private int offset;
+    private int tlbRowIndexSize;
+    private int pageTableSize;
 
 	// Constructor   
 	// pageSize: size of a page in bytes. Can be either 4096 or 8192.   
@@ -17,8 +20,17 @@ class AddressTranslator {
         if(pageSize == 4096 || pageSize == 8192){
             this.pageSize = pageSize;
 
+            if(pageSize == 4096){
+                // offset de 12 (array of size 31)
+                offset = 12;
+            }else{
+                // offset de 13 (array of size 31)
+                offset = 13;
+            }
+
             // Page table creation
-            pageTable = Arrays.asList(pageTableArray(this.pageSize));
+            pageTableSize = pageTableSize(this.pageSize);
+            pageTable = Arrays.asList(pageTableArray(this.pageTableSize));
         }else{
             throw new IllegalArgumentException("Wrong page size ! The page size should be 4096 or 8192.");
         }
@@ -26,6 +38,20 @@ class AddressTranslator {
         // numTLBRows initialization
         if(numTLBRows == 4 || numTLBRows == 8 || numTLBRows == 16){
             this.numTLBRows = numTLBRows;
+
+            switch (numTLBRows){
+                case 16:
+                    tlbRowIndexSize = 4;
+                    break;
+
+                case 8:
+                    tlbRowIndexSize = 3;
+                    break;
+
+                case 4:
+                    tlbRowIndexSize = 2;
+                    break;
+            }
 
             // TLB creation
             tlb = new TLB(numTLBRows);
@@ -52,30 +78,7 @@ class AddressTranslator {
 	    try{
             int[] binaryVpn = intToLongBinary(virtualAddress);
 
-            int offset;
-            if(pageSize == 4096){
-                // offset de 12 (array of size 31)
-                offset = 12;
-            }else{
-                // offset de 13 (array of size 31)
-                offset = 13;
-            }
-
 	        // First we try to find the physical address in the TLB
-            int tlbRowIndexSize = 0;
-            switch (numTLBRows){
-                case 16:
-                    tlbRowIndexSize = 4;
-                    break;
-
-                case 8:
-                    tlbRowIndexSize = 3;
-                    break;
-
-                case 4:
-                    tlbRowIndexSize = 2;
-                    break;
-            }
             double tlbTag = 0;
             for(int i = binaryVpn.length - (tlbRowIndexSize + offset + 1), j=0; i >= 0 ; i--, j++){
                 tlbTag += binaryVpn[i] * Math.pow (2, j);
@@ -126,59 +129,40 @@ class AddressTranslator {
     }
 
     private void prefetch(int virtualAddress) {
-        int[] binaryVpn = intToLongBinary(virtualAddress);
-        int offset;
-        if(pageSize == 4096){
-            // offset de 12 (array of size 31)
-            offset = 12;
-        }else{
-            // offset de 13 (array of size 31)
-            offset = 13;
-        }
+	    try {
+            int[] binaryVpn = intToLongBinary(virtualAddress);
 
-        // First we try to find the physical address in the TLB
-        int tlbRowIndexSize = 0;
-        switch (numTLBRows){
-            case 16:
-                tlbRowIndexSize = 4;
-                break;
-
-            case 8:
-                tlbRowIndexSize = 3;
-                break;
-
-            case 4:
-                tlbRowIndexSize = 2;
-                break;
-        }
-        double tlbTag = 0;
-        for(int i = binaryVpn.length - (tlbRowIndexSize + offset + 1), j=0; i >= 0 ; i--, j++){
-            tlbTag += binaryVpn[i] * Math.pow (2, j);
-        }
-        int start = binaryVpn.length - (tlbRowIndexSize + offset + 1);
-        double tlbRowIndex = 0;
-        for(int i = start + tlbRowIndexSize, j=0; i > start; i--, j++){
-            tlbRowIndex += binaryVpn[i] * Math.pow (2, j);
-        }
-        double vpnEntry = 0;
-        for(int i = binaryVpn.length-(offset+1), j=0; i >= 0; i--, j++){
-            vpnEntry += binaryVpn[i] * Math.pow (2, j);
-        }
-        Entry entry = pageTable.get((int) vpnEntry);
-        if(entry.present) {
-            int[] binaryPpn = intToBinary(entry.ppn);
-            int[] tmp = new int[binaryPpn.length + offset];
-            for (int i = 0; i < binaryPpn.length; i++) {
-                tmp[i] = binaryPpn[i];
+            double tlbTag = 0;
+            for (int i = binaryVpn.length - (tlbRowIndexSize + offset + 1), j = 0; i >= 0; i--, j++) {
+                tlbTag += binaryVpn[i] * Math.pow(2, j);
             }
-            for (int i = binaryPpn.length, j = binaryVpn.length - offset; j < binaryVpn.length - 1; i++, j++) {
-                tmp[i] = binaryVpn[j];
+            int start = binaryVpn.length - (tlbRowIndexSize + offset + 1);
+            double tlbRowIndex = 0;
+            for (int i = start + tlbRowIndexSize, j = 0; i > start; i--, j++) {
+                tlbRowIndex += binaryVpn[i] * Math.pow(2, j);
             }
-            int res = 0;
-            for (int i = 0, j = tmp.length - 1; i < tmp.length; i++, j--) {
-                res += tmp[i] * Math.pow(2, j);
+            double vpnEntry = 0;
+            for (int i = binaryVpn.length - (offset + 1), j = 0; i >= 0; i--, j++) {
+                vpnEntry += binaryVpn[i] * Math.pow(2, j);
             }
-            tlb.addToTlb(tlbRowIndex, tlbTag, res);
+            Entry entry = pageTable.get((int) vpnEntry);
+            if (entry.present) {
+                int[] binaryPpn = intToBinary(entry.ppn);
+                int[] tmp = new int[binaryPpn.length + offset];
+                for (int i = 0; i < binaryPpn.length; i++) {
+                    tmp[i] = binaryPpn[i];
+                }
+                for (int i = binaryPpn.length, j = binaryVpn.length - offset; j < binaryVpn.length - 1; i++, j++) {
+                    tmp[i] = binaryVpn[j];
+                }
+                int res = 0;
+                for (int i = 0, j = tmp.length - 1; i < tmp.length; i++, j--) {
+                    res += tmp[i] * Math.pow(2, j);
+                }
+                tlb.addToTlb(tlbRowIndex, tlbTag, res);
+            }
+        }catch (Exception e){
+	        //Virtual address too big
         }
     }
 
@@ -194,8 +178,8 @@ class AddressTranslator {
 	    return 524287;
     }
 
-    private Entry[] pageTableArray(int pageSize){
-	    Entry []array = new Entry[pageTableSize(pageSize)];
+    private Entry[] pageTableArray(int pageTableSize){
+	    Entry []array = new Entry[pageTableSize];
         for(int i = 0; i < array.length; i++) {
             array[i] = new Entry(i);
         }
