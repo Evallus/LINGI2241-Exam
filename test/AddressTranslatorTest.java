@@ -94,75 +94,74 @@ class AddressTranslatorTest {
     }
 
     @Test
-    void test(){
-        AddressTranslator addressTranslator = new AddressTranslator(4096, 4);
-        int a = 0;
-        int b = a + 16384;
-        int c = b + 16384;
-        int d = c + 16384;
-        int e = d + 16384;
-        int g = e + 16384;
-        int h = g + 16384;
-        int i = h + 16384;
-        int j = i + 16384;
-        try{
-            int physicalAddress;
-            addressTranslator.setPageTableEntry(0, 5, true);
-            addressTranslator.setPageTableEntry(0, 17, true);
-            addressTranslator.setPageTableEntry(1, 14, true);
-            addressTranslator.setPageTableEntry(2, 15, true);
-            addressTranslator.setPageTableEntry(3, 16, true);
-            physicalAddress = addressTranslator.translate(a);
-            physicalAddress = addressTranslator.translate(4096);
-            System.out.println(addressTranslator.getNumberOfHits());
-            physicalAddress = addressTranslator.translate(a);
-            System.out.println(addressTranslator.getNumberOfHits());
+    void testTLBLRU() {
+        AddressTranslator translator = new AddressTranslator(4096, 16);
+        translator.setPageTableEntry(1, 5, true);
+        translator.translate(4100);
+        translator.translate(4100);
+        assertEquals(1, translator.getNumberOfHits());
 
-            addressTranslator.setPageTableEntry(4, 6, true);
-            physicalAddress = addressTranslator.translate(b);
-            System.out.println(addressTranslator.getNumberOfHits());
-            physicalAddress = addressTranslator.translate(b);
+        translator.setPageTableEntry(17, 9, true);
+        translator.translate(69636);
+        translator.translate(69636);
+        assertEquals(2, translator.getNumberOfHits());
 
-            addressTranslator.setPageTableEntry(8, 7, true);
-            physicalAddress = addressTranslator.translate(c);
-            System.out.println(addressTranslator.getNumberOfHits());
-            physicalAddress = addressTranslator.translate(c);
+        translator.setPageTableEntry(33, 2, true);
+        translator.translate(135172);
+        translator.translate(135172);
+        assertEquals(3, translator.getNumberOfHits());
 
-            addressTranslator.setPageTableEntry(12, 8, true);
-            physicalAddress = addressTranslator.translate(d);
-            System.out.println(addressTranslator.getNumberOfHits());
-            physicalAddress = addressTranslator.translate(d);
+        translator.setPageTableEntry(49, 15, true);
+        translator.translate(200708);
+        translator.translate(200708);
+        assertEquals(4, translator.getNumberOfHits());
 
-            addressTranslator.setPageTableEntry(16, 9, true);
-            physicalAddress = addressTranslator.translate(e);
-            System.out.println(addressTranslator.getNumberOfHits());
-            System.out.println("---------------------------------------------------------");
-            physicalAddress = addressTranslator.translate(e);
+        translator.setPageTableEntry(65, 6, true);
+        translator.translate(266244);
+        translator.translate(266244);
+        assertEquals(5, translator.getNumberOfHits());
 
-            addressTranslator.setPageTableEntry(20, 10, true);
-            physicalAddress = addressTranslator.translate(g);
-            System.out.println(addressTranslator.getNumberOfHits());
-            System.out.println("---------------------------------------------------------");
-            physicalAddress = addressTranslator.translate(g);
 
-            addressTranslator.setPageTableEntry(24, 11, true);
-            physicalAddress = addressTranslator.translate(h);
-            System.out.println(addressTranslator.getNumberOfHits());
-            physicalAddress = addressTranslator.translate(h);
+        translator.translate(4100);
+        assertEquals(5, translator.getNumberOfHits());
+    }
 
-            addressTranslator.setPageTableEntry(28, 12, true);
-            physicalAddress = addressTranslator.translate(i);
-            System.out.println(addressTranslator.getNumberOfHits());
-            System.out.println("---------------------------------------------------------");
-            physicalAddress = addressTranslator.translate(i);
+    @Test
+    void testTLBLRUBiS() {
+        AddressTranslator translator = new AddressTranslator(4096, 16);
+        translator.setPageTableEntry(1, 5, true);
+        translator.translate(4100);
+        translator.translate(4100);
+        assertEquals(1, translator.getNumberOfHits());
 
-            addressTranslator.setPageTableEntry(32, 13, true);
-            physicalAddress = addressTranslator.translate(j);
-            System.out.println(addressTranslator.getNumberOfHits());
-            physicalAddress = addressTranslator.translate(j);
-        }
-        catch (IllegalArgumentException f){
-            System.out.println("Exception");
-        }
+        translator.setPageTableEntry(17, 9, true);
+        translator.translate(69636);
+        translator.translate(69636);
+        assertEquals(2, translator.getNumberOfHits());
+
+        translator.setPageTableEntry(33, 2, true);
+        translator.translate(135172);
+        translator.translate(135172);
+        assertEquals(3, translator.getNumberOfHits());
+
+        translator.setPageTableEntry(49, 15, true);
+        translator.translate(200708);
+        translator.translate(200708);
+        assertEquals(4, translator.getNumberOfHits());
+
+        translator.translate(4100);
+        assertEquals(5, translator.getNumberOfHits());
+
+        translator.setPageTableEntry(65, 6, true);
+        translator.translate(266244);
+        translator.translate(266244);
+        assertEquals(6, translator.getNumberOfHits());
+
+
+        translator.translate(4100);
+        assertEquals(7, translator.getNumberOfHits());
+
+        translator.translate(69636);
+        assertEquals(7, translator.getNumberOfHits());
     }
 }

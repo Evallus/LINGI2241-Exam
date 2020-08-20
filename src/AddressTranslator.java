@@ -91,6 +91,7 @@ class AddressTranslator {
             try {
                 // TLB hits !
                 int ppn = tlb.rows[(int) tlbRowIndex].findTag((int) tlbTag).ppn;
+                tlb.addToTlb(tlbRowIndex, tlbTag, ppn);
                 tlbHits++;
                 return ppn;
             }catch (NullPointerException e){
@@ -128,6 +129,7 @@ class AddressTranslator {
         }
     }
 
+    // Prefetch (by translating) the next entry
     private void prefetch(int virtualAddress) {
 	    try {
             int[] binaryVpn = intToLongBinary(virtualAddress);
@@ -171,6 +173,7 @@ class AddressTranslator {
         return tlbHits;
     }
 
+    // Returns the page table size (the number of address)
     private int pageTableSize(int pageSize){
 	    if(pageSize == 4096){
 	        return 1048575;
@@ -178,6 +181,7 @@ class AddressTranslator {
 	    return 524287;
     }
 
+    // Create the page table as an array of size pageTableSize and initialize all the Entry.
     private Entry[] pageTableArray(int pageTableSize){
 	    Entry []array = new Entry[pageTableSize];
         for(int i = 0; i < array.length; i++) {
@@ -284,6 +288,8 @@ class AddressTranslator {
             return null;
         }
 
+        // Update the TLB's row with the new tlbTag and ppn
+        // If the tag is already present in the row, put the tag at the head of the row
         public void addToRow(int tlbTag, int ppn) {
             TLBSlot slot = findTag(tlbTag);
             if(slot != null){
@@ -303,7 +309,7 @@ class AddressTranslator {
                 slotToAdd.prev = null;
                 head = slotToAdd;
                 capacity++;
-                if(capacity == 4) {
+                if(capacity >= 4) {
                     tail.prev.next = tail.next;
                     tail = tail.prev;
                 }
@@ -325,80 +331,9 @@ class AddressTranslator {
             }
         }
 
+        // Update the TLB with the new tlbTag, tlbRowIndex and ppn
         public void addToTlb(double tlbRowIndex, double tlbTag, int ppn) {
             tlb.rows[(int) tlbRowIndex].addToRow((int) tlbTag, ppn);
-        }
-    }
-
-    public static void main( String[] args ) {
-        AddressTranslator addressTranslator = new AddressTranslator(4096, 4);
-        int a = 0;
-        int b = a + 16384;
-        int c = b + 16384;
-        int d = c + 16384;
-        int e = d + 16384;
-        int g = e + 16384;
-        int h = g + 16384;
-        int i = h + 16384;
-        int j = i + 16384;
-        try{
-            int physicalAddress;
-            addressTranslator.setPageTableEntry(0, 5, true);
-            addressTranslator.setPageTableEntry(0, 17, true);
-            addressTranslator.setPageTableEntry(1, 14, true);
-            addressTranslator.setPageTableEntry(2, 15, true);
-            addressTranslator.setPageTableEntry(3, 16, true);
-            physicalAddress = addressTranslator.translate(a);
-            physicalAddress = addressTranslator.translate(4096);
-            System.out.println(addressTranslator.getNumberOfHits());
-            physicalAddress = addressTranslator.translate(a);
-            System.out.println(addressTranslator.getNumberOfHits());
-
-            addressTranslator.setPageTableEntry(4, 6, true);
-            physicalAddress = addressTranslator.translate(b);
-            System.out.println(addressTranslator.getNumberOfHits());
-            physicalAddress = addressTranslator.translate(b);
-
-            addressTranslator.setPageTableEntry(8, 7, true);
-            physicalAddress = addressTranslator.translate(c);
-            System.out.println(addressTranslator.getNumberOfHits());
-            physicalAddress = addressTranslator.translate(c);
-
-            addressTranslator.setPageTableEntry(12, 8, true);
-            physicalAddress = addressTranslator.translate(d);
-            System.out.println(addressTranslator.getNumberOfHits());
-            physicalAddress = addressTranslator.translate(d);
-
-            addressTranslator.setPageTableEntry(16, 9, true);
-            physicalAddress = addressTranslator.translate(e);
-            System.out.println(addressTranslator.getNumberOfHits());
-            System.out.println("---------------------------------------------------------");
-            physicalAddress = addressTranslator.translate(e);
-
-            addressTranslator.setPageTableEntry(20, 10, true);
-            physicalAddress = addressTranslator.translate(g);
-            System.out.println(addressTranslator.getNumberOfHits());
-            System.out.println("---------------------------------------------------------");
-            physicalAddress = addressTranslator.translate(g);
-
-            addressTranslator.setPageTableEntry(24, 11, true);
-            physicalAddress = addressTranslator.translate(h);
-            System.out.println(addressTranslator.getNumberOfHits());
-            physicalAddress = addressTranslator.translate(h);
-
-            addressTranslator.setPageTableEntry(28, 12, true);
-            physicalAddress = addressTranslator.translate(i);
-            System.out.println(addressTranslator.getNumberOfHits());
-            System.out.println("---------------------------------------------------------");
-            physicalAddress = addressTranslator.translate(i);
-
-            addressTranslator.setPageTableEntry(32, 13, true);
-            physicalAddress = addressTranslator.translate(j);
-            System.out.println(addressTranslator.getNumberOfHits());
-            physicalAddress = addressTranslator.translate(j);
-        }
-        catch (IllegalArgumentException f){
-            System.out.println("Exception");
         }
     }
 } 
